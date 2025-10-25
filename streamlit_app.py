@@ -184,3 +184,17 @@ if user_input:
         st.write(answer)
 
     st.session_state.chat_history.append((user_input, answer))
+
+uploaded_files = st.file_uploader(
+    "📤 Sube tus documentos PDF aquí",
+    type=["pdf"],
+    accept_multiple_files=True
+)
+
+if uploaded_files:
+    os.makedirs("pdf", exist_ok=True)
+    for uploaded_file in uploaded_files:
+        file_path = os.path.join("pdf", uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+    st.success(f"✅ {len(uploaded_files)} archivo(s) guardado(s) en la carpeta 'pdf/'. Recarga la app para procesarlos.")
