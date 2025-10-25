@@ -30,7 +30,7 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 # ⚙️ Cachear recursos
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def load_retriever():
     # 📁 Verificar carpeta de PDFs
     if not os.path.exists("pdf"):
@@ -206,5 +206,7 @@ if uploaded_files:
     st.success(f"✅ {len(uploaded_files)} archivo(s) guardado(s) en la carpeta 'pdf/'. Procesando en Pinecone...")
 
     # 🔄 Ejecutar procesamiento en Pinecone automáticamente
-    retriever = load_retriever()
+    with st.spinner("Procesando documentos en Pinecone..."):
+        st.cache_resource.clear()  # 💥 Limpia la caché
+        retriever = load_retriever()
     st.success("📚 Documentos indexados correctamente. Ya puedes hacer preguntas.")
