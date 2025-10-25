@@ -3,7 +3,7 @@ import re
 import streamlit as st
 from openai import OpenAI, OpenAIError
 
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Pinecone
@@ -52,17 +52,20 @@ def init_embeddings_and_index():
 
 embeddings_model, index = init_embeddings_and_index()
 
-# 📤 Subida de archivo único
-uploaded_file = st.file_uploader("📤 Sube un documento PDF para comenzar", type=["pdf"])
+# 📤 Subida de archivo
+uploaded_file = st.file_uploader("📤 Sube un documento PDF", type=["pdf"])
 
-if uploaded_file and st.button("📚 Cargar documento"):
+if uploaded_file:
     os.makedirs("pdf", exist_ok=True)
     file_path = os.path.join("pdf", uploaded_file.name)
     with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
+    st.success(f"✅ Archivo guardado: {uploaded_file.name}")
 
-    # 📄 Cargar y procesar documento
-    loader = PyPDFLoader(file_path)
+# 📚 Botón para cargar todos los PDFs en Pinecone
+if st.button("📚 Cargar documentos PDF en Pinecone"):
+    os.makedirs("pdf", exist_ok=True)
+    loader = DirectoryLoader("pdf/", glob="**/*.pdf", loader_cls=PyPDFLoader)
     documents = loader.load()
 
     for doc in documents:
@@ -76,11 +79,11 @@ if uploaded_file and st.button("📚 Cargar documento"):
     )
     docs_chunks = text_splitter.split_documents(documents)
 
-    # 📦 Insertar vectores en Pinecone
     records = []
-    safe_id_prefix = re.sub(r'[^a-zA-Z0-9_-]', '_', uploaded_file.name)
-
     for i, doc in enumerate(docs_chunks):
+        source_name = doc.metadata.get("source", f"doc_{i}")
+        safe_id_prefix = re.sub(r'[^a-zA-Z0-9_-]', '_', source_name)
+
         emb_vector = embeddings_model.embed_query(doc.page_content)
         if len(emb_vector) != 384:
             st.error(f"❌ Vector con dimensión incorrecta: {len(emb_vector)}")
@@ -92,7 +95,7 @@ if uploaded_file and st.button("📚 Cargar documento"):
             "metadata": {
                 "text": doc.page_content,
                 "page": doc.metadata.get("page", 0),
-                "source": uploaded_file.name
+                "source": source_name
             }
         }
         records.append(record)
@@ -106,14 +109,13 @@ if uploaded_file and st.button("📚 Cargar documento"):
         st.error(f"❌ Error al insertar vectores en Pinecone: {e}")
         st.stop()
 
-    # 🔍 Guardar retriever en sesión
     st.session_state.retriever = Pinecone(
         index=index,
         embedding=embeddings_model,
         text_key="text"
     ).as_retriever(search_kwargs={"k": 3})
 
-    st.success("✅ Documento cargado e indexado correctamente. Ya puedes hacer preguntas.")
+    st.success("✅ Todos los documentos PDF han sido indexados correctamente.")
 
 # 🧠 Función RAG
 def ask_rag_openai(question):
@@ -125,7 +127,7 @@ def ask_rag_openai(question):
         return "¡Hola! 👋 Soy tu asistente experto en documentos. ¿Qué quieres consultar hoy?"
 
     if st.session_state.retriever is None:
-        return "⚠️ Primero debes subir un documento PDF y presionar el botón para cargarlo."
+        return "⚠️ Primero debes cargar documentos PDF en Pinecone usando el botón."
 
     docs = st.session_state.retriever.invoke(question)
 
@@ -198,4 +200,4 @@ if st.session_state.retriever:
 
         st.session_state.chat_history.append((user_input, answer))
 else:
-    st.info("📂 Por favor, sube un documento PDF y presiona el botón para comenzar.")
+    st.info("📂 Por favor, sube documentos PDF y presiona el botón para indexarlos.")
