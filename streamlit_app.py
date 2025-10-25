@@ -202,4 +202,9 @@ if uploaded_files:
         file_path = os.path.join("pdf", uploaded_file.name)
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-    st.success(f"✅ {len(uploaded_files)} archivo(s) guardado(s) en la carpeta 'pdf/'. Recarga la app para procesarlos.")
+
+    st.success(f"✅ {len(uploaded_files)} archivo(s) guardado(s) en la carpeta 'pdf/'. Procesando en Pinecone...")
+
+    # 🔄 Ejecutar procesamiento en Pinecone automáticamente
+    retriever = load_retriever()
+    st.success("📚 Documentos indexados correctamente. Ya puedes hacer preguntas.")
