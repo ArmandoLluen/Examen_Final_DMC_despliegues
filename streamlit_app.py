@@ -1,4 +1,5 @@
 import os
+import re
 import streamlit as st
 from openai import OpenAI, OpenAIError
 
@@ -77,6 +78,8 @@ if uploaded_file and st.button("📚 Cargar documento"):
 
     # 📦 Insertar vectores en Pinecone
     records = []
+    safe_id_prefix = re.sub(r'[^a-zA-Z0-9_-]', '_', uploaded_file.name)
+
     for i, doc in enumerate(docs_chunks):
         emb_vector = embeddings_model.embed_query(doc.page_content)
         if len(emb_vector) != 384:
@@ -84,7 +87,7 @@ if uploaded_file and st.button("📚 Cargar documento"):
             st.stop()
 
         record = {
-            "id": f"{uploaded_file.name}_chunk_{i}",
+            "id": f"{safe_id_prefix}_chunk_{i}",
             "values": emb_vector,
             "metadata": {
                 "text": doc.page_content,
