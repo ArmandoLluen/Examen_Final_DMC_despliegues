@@ -106,6 +106,27 @@ def load_retriever():
 
 retriever = load_retriever()
 
+uploaded_files = st.file_uploader(
+    "📤 Sube tus documentos PDF aquí",
+    type=["pdf"],
+    accept_multiple_files=True
+)
+
+if uploaded_files:
+    os.makedirs("pdf", exist_ok=True)
+    for uploaded_file in uploaded_files:
+        file_path = os.path.join("pdf", uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+
+    st.success(f"✅ {len(uploaded_files)} archivo(s) guardado(s) en la carpeta 'pdf/'. Procesando en Pinecone...")
+
+    # 🔄 Ejecutar procesamiento en Pinecone automáticamente
+    with st.spinner("Procesando documentos en Pinecone..."):
+        load_retriever.clear()
+        retriever = load_retriever()
+    st.success("📚 Documentos indexados correctamente. Ya puedes hacer preguntas.")
+
 # 🧠 Función RAG con manejo de saludos
 def ask_rag_openai(question):
     # 🗣️ Detectar saludos comunes
@@ -189,24 +210,4 @@ if user_input:
         st.write(answer)
 
     st.session_state.chat_history.append((user_input, answer))
-
-uploaded_files = st.file_uploader(
-    "📤 Sube tus documentos PDF aquí",
-    type=["pdf"],
-    accept_multiple_files=True
-)
-
-if uploaded_files:
-    os.makedirs("pdf", exist_ok=True)
-    for uploaded_file in uploaded_files:
-        file_path = os.path.join("pdf", uploaded_file.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-
-    st.success(f"✅ {len(uploaded_files)} archivo(s) guardado(s) en la carpeta 'pdf/'. Procesando en Pinecone...")
-
-    # 🔄 Ejecutar procesamiento en Pinecone automáticamente
-    with st.spinner("Procesando documentos en Pinecone..."):
-        st.cache_resource.clear()  # 💥 Limpia la caché
-        retriever = load_retriever()
-    st.success("📚 Documentos indexados correctamente. Ya puedes hacer preguntas.")
+    
