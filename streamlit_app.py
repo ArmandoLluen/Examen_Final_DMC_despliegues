@@ -79,6 +79,10 @@ if uploaded_file and st.button("📚 Cargar documento"):
     records = []
     for i, doc in enumerate(docs_chunks):
         emb_vector = embeddings_model.embed_query(doc.page_content)
+        if len(emb_vector) != 384:
+            st.error(f"❌ Vector con dimensión incorrecta: {len(emb_vector)}")
+            st.stop()
+
         record = {
             "id": f"{uploaded_file.name}_chunk_{i}",
             "values": emb_vector,
@@ -90,10 +94,14 @@ if uploaded_file and st.button("📚 Cargar documento"):
         }
         records.append(record)
 
-    batch_size = 50
-    for i in range(0, len(records), batch_size):
-        batch = records[i:i + batch_size]
-        index.upsert(vectors=batch)
+    try:
+        batch_size = 50
+        for i in range(0, len(records), batch_size):
+            batch = records[i:i + batch_size]
+            index.upsert(vectors=batch)
+    except Exception as e:
+        st.error(f"❌ Error al insertar vectores en Pinecone: {e}")
+        st.stop()
 
     # 🔍 Guardar retriever en sesión
     st.session_state.retriever = Pinecone(
