@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -126,16 +126,21 @@ def ask_rag_openai(question):
     # 🧠 Si no hay contexto relevante, dejar que el LLM responda con conocimiento general
     if not docs:
         prompt_general = f"""
-Eres un asistente experto. Responde de forma clara, precisa y profesional a la siguiente pregunta:
+            Eres un asistente experto. Responde de forma clara, precisa y profesional a la siguiente pregunta:
 
-{question}
-"""
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt_general}],
-            temperature=0.3
-        )
-        return response.choices[0].message.content.strip()
+            {question}
+            """
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3
+            )
+            return response.choices[0].message.content.strip()
+        except OpenAIError as e:
+            return f"❌ Error al generar la respuesta: {str(e)}"
+        except Exception as e:
+            return f"❌ Error inesperado: {str(e)}"
 
     # 🧩 Construir contexto con referencias al documento fuente
     context = "\n\n".join([
@@ -145,15 +150,15 @@ Eres un asistente experto. Responde de forma clara, precisa y profesional a la s
 
     # 📝 Prompt optimizado para respuestas fieles al contexto
     prompt = f"""
-Eres un experto en la documentación proporcionada. Responde de forma clara, precisa y profesional.
-Incluye referencias al documento fuente si es posible. Solo si el contexto no es suficiente, responde con tu conocimiento general.
+        Eres un experto en la documentación proporcionada. Responde de forma clara, precisa y profesional.
+        Incluye referencias al documento fuente si es posible. Solo si el contexto no es suficiente, responde con tu conocimiento general.
 
-Contexto:
-{context}
+        Contexto:
+        {context}
 
-Pregunta:
-{question}
-"""
+        Pregunta:
+        {question}
+        """
 
     # 🤖 Generar respuesta con OpenAI
     response = client.chat.completions.create(
