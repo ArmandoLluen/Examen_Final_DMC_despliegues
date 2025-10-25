@@ -124,31 +124,53 @@ if st.button("Indexar documentos", disabled=st.session_state.documents_indexed):
         st.session_state.documents_indexed = True
         st.success("Documentos indexados correctamente.")
 
-# 🧠 Función de respuesta
-def responder(pregunta):
-    saludos = ["hola", "buenas", "buenos días", "buenas tardes", "buenas noches", "qué tal", "hey", "holi", "holis", "saludos", "hello", "hi"]
-    if pregunta.lower().strip() in saludos:
-        return "¡Hola! ¿Qué deseas consultar sobre tus documentos?"
+# 🧠 Función RAG
+def responder(question):
+    saludos = [
+        "hola", "buenas", "buenos días", "buenas tardes", "buenas noches",
+        "qué tal", "hey", "holi", "holis", "saludos", "hello", "hi"
+    ]
+    if question.lower().strip() in saludos:
+        return "¡Hola! 👋 Soy tu asistente experto en documentos. ¿Qué quieres consultar hoy?"
 
     if st.session_state.retriever is None:
-        return "Primero debes subir e indexar tus documentos."
+        return "⚠️ Primero debes cargar documentos PDF usando el botón."
 
-    docs = st.session_state.retriever.invoke(pregunta)
+    docs = st.session_state.retriever.invoke(question)
 
     if not docs:
-        prompt = f"Responde de forma clara y profesional a la siguiente pregunta:\n\n{pregunta}"
-    else:
-        contexto = "\n\n".join([
-            f"(Referencia: página {doc.metadata.get('page', 'N/A')})\n{doc.page_content}"
-            for doc in docs
-        ])
-        prompt = f"""Responde con precisión usando el siguiente contexto. Si no es suficiente, responde con conocimiento general.
-            Contexto:
-            {contexto}
+        prompt_general = f"""
+        Eres un asistente experto. Responde de forma clara, precisa y profesional a la siguiente pregunta:
 
-            Pregunta:
-            {pregunta}
-            """
+        {question}
+        """
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt_general}],
+                temperature=0.3
+            )
+            return response.choices[0].message.content.strip()
+        except OpenAIError as e:
+            return f"❌ Error al generar la respuesta: {str(e)}"
+        except Exception as e:
+            return f"❌ Error inesperado: {str(e)}"
+
+    context = "\n\n".join([
+        f"(Referencia: {doc.metadata.get('source', 'desconocido')} - página {doc.metadata.get('page', 'N/A')})\n{doc.page_content}"
+        for doc in docs
+    ])
+
+    prompt = f"""
+    Eres un experto en la documentación proporcionada. Responde de forma clara, precisa y profesional.
+    Incluye referencias al documento fuente si es posible. Solo si el contexto no es suficiente, responde con tu conocimiento general.
+
+    Contexto:
+    {context}
+
+    Pregunta:
+    {question}
+    """
 
     try:
         response = client.chat.completions.create(
@@ -157,8 +179,10 @@ def responder(pregunta):
             temperature=0.3
         )
         return response.choices[0].message.content.strip()
+    except OpenAIError as e:
+        return f"❌ Error al generar la respuesta: {str(e)}"
     except Exception as e:
-        return f"Error al generar respuesta: {str(e)}"
+        return f"❌ Error inesperado: {str(e)}"
 
 # 💬 Mostrar historial
 if st.session_state.chat_history:
